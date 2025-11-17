@@ -8,9 +8,9 @@ SD_CARD="/mnt/SDCARD"
 
 IMAGE_PATH="$SD_CARD/spruce/imgs/update.png"
 
-OTA_URL="https://spruceui.github.io/OTA/spruce"
-OTA_URL_BACKUP="https://raw.githubusercontent.com/spruceUI/spruceui.github.io/refs/heads/main/OTA/spruce"
-OTA_URL_BACKUP_BACKUP="https://raw.githubusercontent.com/spruceUI/spruceSource/refs/heads/main/OTA/spruce"
+OTA_URL="https://sitkaos.github.io/OTA/spruce"
+OTA_URL_BACKUP="https://raw.githubusercontent.com/SitkaOS/sitkaos.github.io/refs/heads/main/OTA/spruce"
+OTA_URL_BACKUP_BACKUP="https://raw.githubusercontent.com/SitkaOS/spruceSource-Testing/refs/heads/main/OTA/spruce"
 TMP_DIR="$SD_CARD/App/-OTA/tmp"
 
 BATTERY_CAPACITY="$(cat $BATTERY/capacity)"
@@ -30,7 +30,7 @@ mkdir -p "$TMP_DIR"
 
 # Check for Wi-Fi and active connection
 wifi_enabled=$(awk '/wifi/ { gsub(/[,]/,"",$2); print $2}' "$SYSTEM_JSON")
-if [ "$wifi_enabled" -eq 0 ] || ! ping -c 3 spruceui.github.io >/dev/null 2>&1; then
+if [ "$wifi_enabled" -eq 0 ] || ! ping -c 3 sitkaos.github.io >/dev/null 2>&1; then
     log_message "OTA: No active network connection, exiting."
     display --icon "$IMAGE_PATH" -t "No active network connection detected, please turn on WiFi and try again." --okay
     rm -rf "$TMP_DIR"
@@ -154,7 +154,7 @@ fi
 
 # Fallback to default release URL if INFO is not available
 if [ -z "$TARGET_INFO" ]; then
-    TARGET_INFO="https://github.com/spruceUI/spruceOS/releases/latest"
+    TARGET_INFO="https://github.com/SitkaOS/spruceOS-Testing/releases/latest"
 fi
 
 if [ -z "$TARGET_VERSION" ] || [ -z "$TARGET_CHECKSUM" ] || [ -z "$TARGET_LINK" ] || [ -z "$TARGET_SIZE" ]; then
