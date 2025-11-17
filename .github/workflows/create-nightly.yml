@@ -1,11 +1,11 @@
 name: Create Nightly
 
 on:
-  schedule:
-    - cron: '10 10 * * *'
+#  schedule:
+#    - cron: '10 10 * * *'
   workflow_dispatch:
-#  push:
-#    branches: [ Development ]
+  push:
+    branches: [ Development ]
 
 jobs:
   create-7z:
@@ -81,14 +81,7 @@ jobs:
           cat spruce/flip/muOS-pixie-reduced.sqsh-part* > spruce/flip/muOS-pixie-reduced.sqsh
           rm -f spruce/flip/muOS-pixie-reduced.sqsh-part*
           cat RetroArch/.retroarch/cores64/scummvm_libretro.so.part* > RetroArch/.retroarch/cores64/scummvm_libretro.so
-          rm -f spruce/flip/scummvm_libretro.so.part*
-
-      - name: Create RetroArch core archives
-        run: |
-          7z a -t7z -mx=9 spruce/archives/staging/cores.7z /mnt/SDCARD/RetroArch/.retroarch/cores
-          7z a -t7z -mx=9 spruce/archives/staging/cores64.7z /mnt/SDCARD/RetroArch/.retroarch/cores64
-          rm -rf /mnt/SDCARD/RetroArch/.retroarch/cores
-          rm -rf /mnt/SDCARD/RetroArch/.retroarch/cores64
+          rm -f RetroArch/.retroarch/cores64/scummvm_libretro.so.part*
 
       - name: Create 7z archive
         run: |
@@ -110,7 +103,7 @@ jobs:
           files: spruceV${{ steps.get_version.outputs.version }}.7z
           tag_name: v${{ steps.get_version.outputs.version }}
           body: ${{ steps.check_commits.outputs.commits }}
-          repository: spruceUI/spruceOSNightlies
+          repository: SitkaOS/spruceOSNightlies-Testing
           token: ${{ secrets.PAT_TOKEN }}
           draft: false
           prerelease: false
@@ -121,8 +114,8 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           # Clone both repositories
-          git clone https://github.com/spruceUI/spruceui.github.io.git ota_repo
-          git clone https://github.com/spruceUI/spruceSource.git source_repo
+          git clone https://github.com/SitkaOS/sitkaos.github.io.git ota_repo
+          git clone https://github.com/SitkaOS/spruceSource-Testing.git source_repo
           
           # Calculate file info
           CHECKSUM=$(md5sum "spruceV${{ steps.get_version.outputs.version }}.7z" | cut -d' ' -f1)
@@ -138,8 +131,8 @@ jobs:
             echo "NIGHTLY_VERSION=${{ steps.get_version.outputs.version }}" >> "$file"
             echo "NIGHTLY_CHECKSUM=$CHECKSUM" >> "$file"
             echo "NIGHTLY_SIZE_IN_MB=$SIZE_MB" >> "$file"
-            echo "NIGHTLY_LINK=https://github.com/spruceUI/spruceOSNightlies/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
-            echo "NIGHTLY_INFO=https://github.com/spruceUI/spruceOSNightlies/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
+            echo "NIGHTLY_LINK=https://github.com/SitkaOS/spruceOSNightlies-Testing/releases/download/v${{ steps.get_version.outputs.version }}/spruceV${{ steps.get_version.outputs.version }}.7z" >> "$file"
+            echo "NIGHTLY_INFO=https://github.com/SitkaOS/spruceOSNightlies-Testing/releases/tag/v${{ steps.get_version.outputs.version }}" >> "$file"
           }
           
           # Update both OTA files
@@ -152,7 +145,7 @@ jobs:
           git config user.email "actions@github.com"
           git add OTA/spruce
           git commit -m "Update nightly release to ${{ steps.get_version.outputs.version }}"
-          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/spruceUI/spruceui.github.io.git main
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/SitkaOS/sitkaos.github.io.git main
           
           # Update backup OTA repo
           cd ../source_repo
@@ -160,7 +153,7 @@ jobs:
           git config user.email "actions@github.com"
           git add OTA/spruce
           git commit -m "Update nightly release to ${{ steps.get_version.outputs.version }}"
-          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/spruceUI/spruceSource.git main
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/SitkaOS/spruceSource-Testing.git main
 
       - name: Delete old releases
         if: success() && steps.check_commits.outcome == 'success'
@@ -168,7 +161,7 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           # Get all releases and filter out beta releases
-          RELEASES=$(gh api repos/spruceUI/spruceOSNightlies/releases --paginate | \
+          RELEASES=$(gh api repos/SitkaOS/spruceOSNightlies-Testing/releases --paginate | \
             jq -r '.[] | select(.tag_name | contains("-Beta") | not) | .id')
           
           # Convert to array and keep only releases after the first 3
@@ -176,6 +169,7 @@ jobs:
           for RELEASE_ID in $RELEASES; do
             COUNT=$((COUNT + 1))
             if [ $COUNT -gt 3 ]; then
-              gh api repos/spruceUI/spruceOSNightlies/releases/$RELEASE_ID -X DELETE
+              gh api repos/SitkaOS/spruceOSNightlies-Testing/releases/$RELEASE_ID -X DELETE
             fi
+
           done
