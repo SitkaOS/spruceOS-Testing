@@ -10,41 +10,77 @@ case "$PLATFORM" in
     "Flip") export SPRUCE_ETC_DIR="/mnt/SDCARD/miyoo355/etc" ;;
 esac
 
+hide_fw_app() {
+    sed -i 's|"label"|"#label"|' /mnt/SDCARD/App/-FirmwareUpdate-/config.json
+}
+
+show_fw_app() {
+    sed -i 's|"#label"|"label"|' /mnt/SDCARD/App/-FirmwareUpdate-/config.json
+}
+
+compare_current_version_to_version() {
+    local target_version="$1"
+    local current_version="$(cat /etc/version)"
+
+    [ -z "$target_version" ] && target_version="1.0.0"
+    [ -z "$current_version" ] && current_version="1.0.0"
+
+    C_1=$(echo "$current_version" | cut -d. -f1)
+    C_2=$(echo "$current_version" | cut -d. -f2)
+    C_3=$(echo "$current_version" | cut -d. -f3)
+    C_2=${C_2:-0}
+    C_3=${C_3:-0}
+
+    T_1=$(echo "$target_version" | cut -d. -f1)
+    T_2=$(echo "$target_version" | cut -d. -f2)
+    T_3=$(echo "$target_version" | cut -d. -f3)
+    T_2=${T_2:-0}
+    T_3=${T_3:-0}
+
+    for i in 1 2 3; do
+        eval C=\$C_$i
+        eval T=\$T_$i
+        if [ "$C" -gt "$T" ]; then 
+            echo "newer"
+            return 0
+        elif [ "$C" -lt "$T" ]; then
+            echo "older"
+            return 2
+        fi
+    done
+    echo "same"
+    return 1
+}
+
 # Define the function to check and hide the firmware update app
 check_and_handle_firmware_app() {
+
+    need_fw_update="true"
 
     case "$PLATFORM" in
         "A30" )
             VERSION="$(cat /usr/miyoo/version)"
-            if [ "$VERSION" -ge 20240713100458 ]; then
-                mount -o bind /mnt/SDCARD/spruce/spruce /mnt/SDCARD/App/-FirmwareUpdate-/config.json
-            fi
+            [ "$VERSION" -ge 20240713100458 ] && need_fw_update="false"
             ;;
         "Flip" )
             VERSION="$(cat /usr/miyoo/version)"
-            if [ "$VERSION" -ge 20250228101926 ]; then
-                mount --bind /mnt/SDCARD/spruce/spruce /mnt/SDCARD/App/-FirmwareUpdate-/config.json
-            fi
+            [ "$VERSION" -ge 20250627233124 ] && need_fw_update="false"
             ;;
         "Brick" )
-            VERSION="$(cat /etc/version)"
-            v_major="$(cut -d '.' -f 1 "$VERSION")"
-            # v_minor="$(cut -d '.' -f 2 "$VERSION")"
-            v_bug="$(cut -d '.' -f 3 "$VERSION")"
-            if [ "$v_major" -ge 1 ] && [ "$v_bug" -ge 6 ]; then
-                mount --bind /mnt/SDCARD/spruce/spruce /mnt/SDCARD/App/-FirmwareUpdate-/config.json
-            fi
+            current_fw_is="$(compare_current_version_to_version "1.1.0")"
+            [ "$current_fw_is" != "older" ] && need_fw_update="false"
             ;;
         "SmartPro" )
-            VERSION="$(cat /etc/version)"
-            v_major="$(cut -d '.' -f 1 "$VERSION")"
-            # v_minor="$(cut -d '.' -f 2 "$VERSION")"
-            v_bug="$(cut -d '.' -f 3 "$VERSION")"
-            if [ "$v_major" -ge 1 ] && [ "$v_bug" -ge 4 ]; then
-                mount --bind /mnt/SDCARD/spruce/spruce /mnt/SDCARD/App/-FirmwareUpdate-/config.json
-            fi
+            current_fw_is="$(compare_current_version_to_version "1.1.0")"
+            [ "$current_fw_is" != "older" ] && need_fw_update="false"
             ;;
     esac
+
+    if [ "$need_fw_update" = "true" ]; then
+        show_fw_app
+    else
+        hide_fw_app
+    fi
 }
 
 # Function to check and hide the Update App if necessary
@@ -83,18 +119,21 @@ check_and_move_p8_bins() {
 
 developer_mode_task() {
     if flag_check "developer_mode"; then
-        if setting_get "samba" || setting_get "dropbear"; then
+        samba_enabled="$(get_config_value '.menuOptions."Network Settings".enableSamba.selected' "False")"
+        ssh_enabled="$(get_config_value '.menuOptions."Network Settings".enableSSH.selected' "False")"
+
+        if [ "$samba_enabled" = "True" ] || [ "$ssh_enabled" = "True" ]; then
             # Loop until WiFi is connected
             while ! ifconfig wlan0 | grep -qE "inet |inet6 "; do
                 sleep 0.2
             done
             
-            if setting_get "samba" && ! pgrep "smbd" > /dev/null; then
+            if [ "$samba_enabled" = "True" ] && ! pgrep "smbd" > /dev/null; then
                 log_message "Dev Mode: Samba starting..."
                 start_samba_process
             fi
 
-            if setting_get "dropbear" && ! pgrep "dropbearmulti" > /dev/null; then
+            if [ "$ssh_enabled" = "True" ] && ! pgrep "dropbearmulti" > /dev/null; then
                 log_message "Dev Mode: Dropbear starting..."
                 start_dropbear_process
             fi
@@ -223,6 +262,10 @@ runtime_mounts_Brick() {
     mount --bind /mnt/SDCARD/spruce/flip/bin/python3 /mnt/SDCARD/spruce/flip/bin/MainUI
 }
 
+runtime_mounts_SmartPro() {
+   runtime_mounts_Brick
+}
+
 runtime_mounts_Flip() {
 
     mount -o bind "${SPRUCE_ETC_DIR}/profile" /etc/profile &
@@ -264,7 +307,6 @@ runtime_mounts_Flip() {
 
     # use appropriate loading images
     [ -d "/mnt/SDCARD/miyoo355/app/skin" ] && mount --bind /mnt/SDCARD/miyoo355/app/skin /usr/miyoo/bin/skin
-    [ -d "/mnt/SDCARD/miyoo355/app/lang" ] && mount --bind /mnt/SDCARD/miyoo355/app/lang /usr/miyoo/bin/lang
     
     # Mask Roms/PORTS with non-A30 version
     mkdir -p "/mnt/SDCARD/Roms/PORTS64"

@@ -87,6 +87,7 @@ handle_network_services() {
 	wifi_connected=false
 	disable_wifi_in_game="$(get_config_value '.menuOptions."Battery Settings".disableWifiInGame.selected' "False")"
 	disable_net_serv_in_game="$(get_config_value '.menuOptions."Battery Settings".disableNetworkServicesInGame.selected' "False")"
+	syncthing_enabled="$(get_config_value '.menuOptions."Network Settings".enableSyncthing.selected' "False")"
 
 	##### RAC Check #####
 	if [ "$disable_wifi_in_game" = "False" ] && grep -q 'cheevos_enable = "true"' /mnt/SDCARD/RetroArch/retroarch.cfg; then
@@ -95,7 +96,7 @@ handle_network_services() {
 	fi
 
 	##### Syncthing Sync Check, perform only once per session #####
-	if setting_get "syncthing" && ! flag_check "syncthing_startup_synced"; then
+	if ["$syncthing_enabled" = "True" ] && ! flag_check "syncthing_startup_synced"; then
 		log_message "Syncthing is enabled, WiFi connection needed"
 		wifi_needed=true
 		syncthing_enabled=true
@@ -521,24 +522,81 @@ save_ppsspp_configs() {
 
 ### EVERYTHING ELSE ###
 
+prepare_ra_config() {
+	PLATFORM_CFG="/mnt/SDCARD/spruce/settings/platform/retroarch-$PLATFORM.cfg"
+	CURRENT_CFG="/mnt/SDCARD/RetroArch/retroarch.cfg"
+
+	# Set auto save state based on spruceUI config
+	auto_save="$(get_config_value '.menuOptions."Emulator Settings".raAutoSave.selected' "True")"
+	log_message "auto save setting is $auto_save" -v
+	TMP_CFG="$(mktemp)"
+	if [ "$auto_save" = "True" ]; then
+	    sed 's|savestate_auto_save.*|savestate_auto_save = "true"|' "$PLATFORM_CFG" > "$TMP_CFG"
+	else
+	    sed 's|savestate_auto_save.*|savestate_auto_save = "false"|' "$PLATFORM_CFG" > "$TMP_CFG"
+	fi
+	mv "$TMP_CFG" "$PLATFORM_CFG"
+
+	# Set auto load state based on spruceUI config
+	auto_load="$(get_config_value '.menuOptions."Emulator Settings".raAutoLoad.selected' "True")"
+	log_message "auto load setting is $auto_load" -v
+	TMP_CFG="$(mktemp)"
+	if [ "$auto_load" = "True" ]; then
+	    sed 's|savestate_auto_load.*|savestate_auto_load = "true"|' "$PLATFORM_CFG" > "$TMP_CFG"
+	else
+	    sed 's|savestate_auto_load.*|savestate_auto_load = "false"|' "$PLATFORM_CFG" > "$TMP_CFG"
+	fi
+	mv "$TMP_CFG" "$PLATFORM_CFG"
+
+	# Set hotkey enable button based on spruceUI config
+	hotkey_enable="$(get_config_value '.menuOptions."Emulator Settings".raHotkey.selected' "True")"
+	log_message "ra hotkey enable button is $hotkey_enable" -v
+	TMP_CFG="$(mktemp)"
+	case "$PLATFORM" in
+		"A30")
+			HOTKEY_LINE="input_enable_hotkey"
+			SELECT_VAL="rctrl"
+			START_VAL="enter"
+			HOME_VAL="escape"
+			;;
+		*)
+			HOTKEY_LINE="input_enable_hotkey_btn"
+			SELECT_VAL="4"
+			START_VAL="6"
+			HOME_VAL="5"
+			;;
+	esac
+	case "$hotkey_enable" in
+		"Select")
+			sed "s|^$HOTKEY_LINE = .*|$HOTKEY_LINE = \"$SELECT_VAL\"|" "$PLATFORM_CFG" > "$TMP_CFG"
+			mv "$TMP_CFG" "$PLATFORM_CFG"
+			;;
+		"Start")
+			sed "s|^$HOTKEY_LINE = .*|$HOTKEY_LINE = \"$START_VAL\"|" "$PLATFORM_CFG" > "$TMP_CFG"
+			mv "$TMP_CFG" "$PLATFORM_CFG"
+			;;
+		"Menu")
+			sed "s|^$HOTKEY_LINE = .*|$HOTKEY_LINE = \"$HOME_VAL\"|" "$PLATFORM_CFG" > "$TMP_CFG"
+			mv "$TMP_CFG" "$PLATFORM_CFG"
+		;;
+		*) ;;
+	esac
+	# copy platform-specific RA config into place where RA wants it to be
+	cp -f "$PLATFORM_CFG" "$CURRENT_CFG"
+}
+
+backup_ra_config() {
+	# copy any changes to retroarch.cfg made during RA runtime back to platform-specific config
+	PLATFORM_CFG="/mnt/SDCARD/spruce/settings/platform/retroarch-$PLATFORM.cfg"
+	CURRENT_CFG="/mnt/SDCARD/RetroArch/retroarch.cfg"
+	[ -e "$CURRENT_CFG" ] && cp -f "$CURRENT_CFG" "$PLATFORM_CFG"
+}
+
 run_retroarch() {
 
-	RETROARCH_CFG="/mnt/SDCARD/RetroArch/retroarch.cfg"
+	prepare_ra_config 2>/dev/null
 
 	use_igm="$(get_config_value '.menuOptions."Emulator Settings".raInGameMenu.selected' "True")"
-	auto_save="$(get_config_value '.menuOptions."Emulator Settings".raAutoSave.selected' "True")"
-	auto_load="$(get_config_value '.menuOptions."Emulator Settings".raAutoLoad.selected' "True")"
-
-	if [ "$auto_save" = "True" ]; then
-	    sed -i 's/^savestate_auto_save = .*/savestate_auto_save = "true"/' "$RETROARCH_CFG"
-	else
-	    sed -i 's/^savestate_auto_save = .*/savestate_auto_save = "false"/' "$RETROARCH_CFG"
-	fi
-	if [ "$auto_load" = "True" ]; then
-	    sed -i 's/^savestate_auto_load = .*/savestate_auto_load = "true"/' "$RETROARCH_CFG"
-	else
-	    sed -i 's/^savestate_auto_load = .*/savestate_auto_load = "false"/' "$RETROARCH_CFG"
-	fi
 
 	case "$PLATFORM" in
 		"Brick" | "SmartPro" )
@@ -595,6 +653,8 @@ run_retroarch() {
 	#Swap below if debugging new cores
 	#HOME="$RA_DIR/" "$RA_DIR/$RA_BIN" -v --log-file /mnt/SDCARD/Saves/retroarch.log -L "$CORE_PATH" "$ROM_FILE"
 	HOME="$RA_DIR/" "$RA_DIR/$RA_BIN" -v -L "$CORE_PATH" "$ROM_FILE"
+
+	backup_ra_config 2>/dev/null
 }
 
 ready_architecture_dependent_states() {
