@@ -1,5 +1,27 @@
 {
     "menuOptions": {
+        "Game Switcher Settings": {
+            "menuHoldTime": {
+                "display": "Menu Hold Time",
+                "options": [
+                    "0",
+                    "0.5",
+                    "1",
+                    "2",
+                    "3",
+                    "4"
+                ],
+                "selected": "1"
+            },
+            "menuShouldVibrate": {
+                "display": "Vibrate on Menu Hold",
+                "options": [
+                    "True",
+                    "False"
+                ],
+                "selected": "True"
+            }
+        },
         "Battery Settings": {
             "ledMode": {
                 "display": "Power indicator LED mode",
@@ -132,7 +154,8 @@
                 "options": [
                     "Emulator menu",
                     "Game Switcher",
-                    "Exit game"
+                    "Exit game",
+                    "Nothing"
                 ],
                 "selected": "Emulator menu"
             },
@@ -141,7 +164,8 @@
                 "options": [
                     "Emulator menu",
                     "Game Switcher",
-                    "Exit game"
+                    "Exit game",
+                    "Nothing"
                 ],
                 "selected": "Game Switcher"
             },
@@ -153,8 +177,10 @@
                 ],
                 "selected": "True"
             },
-            "raHotkey": {
+            "raHotkeyMiyoo": {
                 "display": "RA: hotkey enable button",
+                "description": "custom allows to set in RA itself",
+                "devices": ["MIYOO_A30", "MIYOO_FLIP"],
                 "options": [
                     "Select",
                     "Start",
@@ -163,21 +189,37 @@
                 ],
                 "selected": "Select"
             },
+            "raHotkeyTrimUI": {
+                "display": "RA: hotkey enable button",
+                "description": "custom allows to set in RA itself",
+                "devices": ["TRIMUI_SMART_PRO", "TRIMUI_BRICK"],
+                "options": [
+                    "Select",
+                    "Start",
+                    "Menu",
+                    "Custom"
+                ],
+                "selected": "Menu"
+            },
             "raAutoSave": {
                 "display": "RA: auto save state on close",
+                "description": "custom allows to set in RA itself",
                 "options": [
                     "True",
-                    "False"
+                    "False",
+                    "Custom"
                 ],
-                "selected": "True"
+                "selected": "Custom"
             },
             "raAutoLoad": {
-                "display": "RA: auto load state on launch",
+                "display": "custom allows to set in RA itself",
+                "description": "",
                 "options": [
                     "True",
-                    "False"
+                    "False",
+                    "Custom"
                 ],
-                "selected": "True"
+                "selected": "Custom"
             },
             "perfectOverlays": {
                 "display": "GB[C/A]: use Perfect Overlays",
@@ -202,7 +244,7 @@
         "Network Settings": {
             "enableSamba": {
                 "display": "Enable Samba",
-                "description": "smb://{ip_addr}/SDCARD (user/pass=sprig/happygaming)",
+                "description": "smb://{ip_addr}/SDCARD (user/pass=spruce/happygaming)",
                 "options":[
                     "True",
                     "False"
@@ -211,7 +253,7 @@
             },
             "enableSSH": {
                 "display": "Enable SSH",
-                "description": "ssh sprig@{ip_addr} (password=happygaming)",
+                "description": "ssh spruce@{ip_addr} (password=happygaming)",
                 "options":[
                     "True",
                     "False"
@@ -244,6 +286,28 @@
                     "False"
                 ],
                 "selected":"False"
+            }
+        },
+        "RGB LED Settings": {
+            "emulatorLEDeffect": {
+                "display": "Trigger LEDs on emulator launch",
+                "devices": [ "TRIMUI_BRICK", "TRIMUI_SMART_PRO" ],
+                "description": "different color per emulated system",
+                "options": [
+                    "True",
+                    "False"
+                ],
+                "selected": "True"
+            },
+            "disableLEDs": {
+                "display": "Disable RGB LEDs in all contexts",
+                "devices": ["TRIMUI_BRICK", "TRIMUI_SMART_PRO"],
+                "description": "reload UI to apply",
+                "options": [
+                    "True",
+                    "False"
+                ],
+                "selected": "False"
             }
         }
     }

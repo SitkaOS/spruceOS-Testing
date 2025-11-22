@@ -120,12 +120,6 @@ elif [ $PLATFORM = "Brick" ] || [ $PLATFORM = "SmartPro" ]; then
 
     mkdir $INPUTD_SETTING_DIR_NAME
 
-    echo 1 > /sys/class/led_anim/effect_enable 
-    echo "FFFFFF" > /sys/class/led_anim/effect_rgb_hex_lr
-    echo 1 > /sys/class/led_anim/effect_cycles_lr
-    echo 1000 > /sys/class/led_anim/effect_duration_lr
-    echo 1 >  /sys/class/led_anim/effect_lr
-
     syslogd -S
 
     /etc/bluetooth/bluetoothd start
@@ -202,8 +196,13 @@ ${SCRIPTS_DIR}/applySetting/idlemon_mm.sh &
 ${SCRIPTS_DIR}/low_power_warning.sh &
 ${SCRIPTS_DIR}/set_up_swap.sh
 
+
+
 # check whether to auto-resume into a game
 if flag_check "save_active"; then
+    # Ensure device is properly initialized (volume, wifi, etc) before launching auto-resume
+    /mnt/SDCARD/App/PyUI/launch.sh -startupInitOnly True
+
     ${SCRIPTS_DIR}/autoRA.sh  &> /dev/null
     log_message "Auto Resume executed"
 else

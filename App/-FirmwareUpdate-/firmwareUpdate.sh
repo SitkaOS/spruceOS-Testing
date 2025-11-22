@@ -1,6 +1,7 @@
 #!/bin/sh
 
 . /mnt/SDCARD/spruce/scripts/helperFunctions.sh
+. /mnt/SDCARD/spruce/scripts/runtimeHelper.sh
 
 SD_ROOT="/mnt/SDCARD"
 FW_DIR="/mnt/SDCARD/spruce/FIRMWARE_UPDATE"
@@ -14,50 +15,32 @@ NEEDS_UPDATE=true
 
 case "$PLATFORM" in
 	"A30" )
+		BRAND="Miyoo"
 		FW_FILE="miyoo282_fw.img"
-		CHARGING="$(cat /sys/devices/platform/axp22_board/axp22-supplyer.20/power_supply/battery/online)"
-		CAPACITY="$(cat /sys/devices/platform/axp22_board/axp22-supplyer.20/power_supply/battery/capacity)"
 		SPACE_NEEDED=48
 		VERSION="$(cat /usr/miyoo/version)"
-		if [ "$VERSION" -ge 20240713100458 ]; then
-			NEEDS_UPDATE=false
-		fi
+		[ "$VERSION" -ge 20240713100458 ] && NEEDS_UPDATE=false
 		;;
 	"Flip" )
+		BRAND="Miyoo"
 		FW_FILE="miyoo355_fw.img"
-		CHARGING="$(cat /sys/class/power_supply/usb/online)"
-		CAPACITY="$(cat /sys/class/power_supply/battery/capacity)"
 		SPACE_NEEDED=384
 		VERSION="$(cat /usr/miyoo/version)"
-		if [ "$VERSION" -ge 20250228101926 ]; then
-			NEEDS_UPDATE=false
-		fi
+		[ "$VERSION" -ge 20250627233124 ] && NEEDS_UPDATE="false"
 		;;
 	"Brick" )
+		BRAND="TrimUI"
 		FW_FILE="trimui_tg3040.awimg"
-		CHARGING="$(cat /sys/class/power_supply/axp2202-usb/online)"
-		CAPACITY="$(cat /sys/class/power_supply/axp2202-battery/capacity)"
 		SPACE_NEEDED=1280
-		VERSION="$(cat /etc/version)"
-		v_major="$(cut -d '.' -f 1 "$VERSION")"
-		# v_minor="$(cut -d '.' -f 2 "$VERSION")"
-		v_bug="$(cut -d '.' -f 3 "$VERSION")"
-		if [ "$v_major" -ge 1 ] && [ "$v_bug" -ge 6 ]; then
-			NEEDS_UPDATE=false
-		fi
+        current_fw_is="$(compare_current_version_to_version "1.1.0")"
+        [ "$current_fw_is" != "older" ] && NEEDS_UPDATE="false"
 		;;
 	"SmartPro" )
+		BRAND="TrimUI"
 		FW_FILE="trimui_tg5040.awimg"
-		CHARGING="$(cat /sys/class/power_supply/axp2202-usb/online)"
-		CAPACITY="$(cat /sys/class/power_supply/axp2202-battery/capacity)"
-		SPACE_NEEDED=768
-		VERSION="$(cat /etc/version)"
-		v_major="$(cut -d '.' -f 1 "$VERSION")"
-		# v_minor="$(cut -d '.' -f 2 "$VERSION")"
-		v_bug="$(cut -d '.' -f 3 "$VERSION")"
-		if [ "$v_major" -ge 1 ] && [ "$v_bug" -ge 4 ]; then
-			NEEDS_UPDATE=false
-		fi
+		SPACE_NEEDED=1280
+        current_fw_is="$(compare_current_version_to_version "1.1.0")"
+        [ "$current_fw_is" != "older" ] && NEEDS_UPDATE="false"
 		;;
 esac
 
@@ -68,9 +51,27 @@ SKIP_VERSION_CHECK=false
 SKIP_APPLY=false
 
 log_message "firmwareUpdate.sh: free space: $FREE_SPACE"
-log_message "firmwareUpdate.sh: charging status: $CHARGING"
-log_message "firmwareUpdate.sh: current charge percent: $CAPACITY"
+log_message "firmwareUpdate.sh: charging status: $(get_charging_status)"
+log_message "firmwareUpdate.sh: current charge percent: $(get_battery_percent)"
 log_message "firmwareUpdate.sh: current FW version: $VERSION"
+
+get_charging_status() {
+	case "$PLATFORM" in
+		"A30" ) cat /sys/devices/platform/axp22_board/axp22-supplyer.20/power_supply/battery/online ;;
+		"Flip" ) cat /sys/class/power_supply/usb/online ;;
+		"Brick" ) cat /sys/class/power_supply/axp2202-usb/online ;;
+		"SmartPro" ) cat /sys/class/power_supply/axp2202-usb/online ;;
+	esac
+}
+
+get_battery_percent() {
+	case "$PLATFORM" in
+		"A30" ) cat /sys/devices/platform/axp22_board/axp22-supplyer.20/power_supply/battery/capacity ;;
+		"Flip" ) cat /sys/class/power_supply/battery/capacity ;;
+		"Brick" ) cat /sys/class/power_supply/axp2202-battery/capacity ;;
+		"SmartPro" ) cat /sys/class/power_supply/axp2202-battery/capacity ;;
+	esac
+}
 
 cancel_update() {
 	log_message "firmwareUpdate.sh: Firmware update cancelled."
@@ -84,13 +85,28 @@ cancel_update() {
 
 confirm_update() {
 	if [ ! -f "$SD_ROOT/$FW_FILE" ]; then
-		display -i "$BG_IMAGE" -d 2 -t "Moving firmware update file into place."
+		display -i "$BG_IMAGE" -d 2 -t "Extracting update to root of SD card. Please wait."
 		7zr x "$FW_DIR/$FW_FILE.7z" -o"$SD_ROOT/"
 	fi
-	display -i "$BG_IMAGE" -t "Your $PLATFORM will now shut down. Please manually power your device back on while plugged in to complete the manufacturer firmware update. Once started, please be patient, as it will take a few minutes. It will power itself down again once complete." -p 140 -o
+	case "$PLATFORM" in
+		"A30") 
+			display -i "$BG_IMAGE" -t "Your A30 will now shut down. Please manually power your device back on while plugged in to complete the manufacturer firmware update. Once started, please be patient, as it will take a few minutes. It will power itself down again once complete." -p 140 -o 
+			sync
+			poweroff
+			;;
+		"Flip")
+			display -i "$BG_IMAGE" -t "Your Flip will now reboot into the OEM firmware update process. Once started, please be patient, as it will take a few minutes. It will restart itself again once complete." -p 140 -o
+			sync
+			reboot
+			;;
+		"Brick"|"SmartPro")
+			display -i "$BG_IMAGE" -t "Your $PLATFORM will now reboot. Hold the VOLUME DOWN key as it does so in order to initiate the OEM firmware update process. Once started, please be patient, as it will take a few minutes. It will restart itself again once complete." -p 140 -o
+			sync
+			reboot
+			;;
+	esac
 	flag_add "first_boot_$PLATFORM"
-	sync
-	poweroff
+
 }
 
 check_for_connection() {
@@ -107,17 +123,20 @@ check_for_connection() {
     log_message "FirmwareUpdate.sh: Device is online. Proceeding."
 }
 
+
+##### MAIN EXECUTION #####
+
 # Early out if firmware is already up to date
 if [ "$SKIP_VERSION_CHECK" = false ] && [ "$NEEDS_UPDATE" = false ]; then
 	log_message "firmwareUpdate.sh: Firmware already up to date. Hiding -FirmwareUpdate- App."
 	display -i "$BG_IMAGE" -o -t "Firmware is up to date - happy gaming!!!!!!!!!!"
-	sed -i 's|"label":|"#label":|' "$CONFIG"
+	sed -i 's|"label":|"#label":|' "/mnt/SDCARD/App/-FirmwareUpdate-/config.json"
 	exit 0
 else
 	log_message "firmwareUpdate.sh: Firmware requires update. Continuing."
 fi
 
-display -i "$BG_IMAGE" -t "A firmware update from the manufacturer is ready for your device. We'll check your device's status and prepare the manufacturer update file. Once set up, the manufacturer firmware updater will install it." -o -p 160
+display -i "$BG_IMAGE" -t "A firmware update from $BRAND is ready for your device. We'll check your device's status and prepare the $BRAND update file. Once set up, the $BRAND firmware updater will install it." -o -p 160
 
 # Do not allow them to update if they don't have enough space to copy and extract the update file
 if [ "$FREE_SPACE" -lt "$SPACE_NEEDED" ]; then
@@ -129,7 +148,7 @@ else
 fi
 
 # Do not allow them to update if their battery level is low, to help avoid bricking
-if [ "$CAPACITY" -lt 10 ]; then
+if [ "$(get_battery_percent)" -lt 10 ]; then
 	log_message "firmwareUpdate.sh: Not enough charge on device. Aborting."
 	display -i "$BG_IMAGE" -o -t "As a precaution, please charge your $PLATFORM to at least 10% capacity, then try again."
 	exit 1
@@ -163,15 +182,14 @@ else
 	kill $download_pid
 fi
 
-# Require them to be plugged into power (requisite for A30 update to even occur) - skip this if Flip.
-if [ "$CHARGING" -eq 0 ] && [ ! "$PLATFORM" = "Flip" ]; then
+# Require them to be plugged into power (requisite for A30 update to even occur).
+if [ "$(get_charging_status)" -eq 0 ]; then
 	log_message "firmwareUpdate.sh: Device not plugged in. Prompting user to plug in their $PLATFORM."
 	while true; do
 		display -i "$BG_IMAGE" -t "Please connect your device to a power source to proceed with the update process." --confirm
 		if confirm; then
 			# Re-evaluate charging status
-			CHARGING="$(cat /sys/devices/platform/axp22_board/axp22-supplyer.20/power_supply/battery/online)"
-			if [ "$CHARGING" -eq 1 ]; then
+			if [ "$(get_charging_status)" -eq 1 ] || [ "$PLATFORM" != "A30" ] && [ "$(get_battery_percent)" -ge 35 ]; then
 				log_message "firmwareUpdate.sh: Device is now plugged in. Continuing."
 				break
 			else
@@ -188,9 +206,9 @@ else
 fi
 
 # Give them one last warning, and a chance to proceed with or cancel the FW update.
-if [ "$CHARGING" -eq 1 ]; then
+if [ "$(get_charging_status)" -eq 1 ] || [ "$PLATFORM" != "A30" ]; then
 	log_message "firmwareUpdate.sh: Device is plugged in. Prompting for A to proceed or B to cancel."
-	display -i "$BG_IMAGE" -t "WARNING: If unplugged or powered off before the update is complete, your device could become temporarily bricked, requiring you to run the unbricker software." --okay
+	display -i "$BG_IMAGE" -t "WARNING: If powered off before the update is complete, your device could become temporarily bricked, requiring you to run the unbricker software." --okay
 	if confirm; then
 		log_message "firmwareUpdate.sh: A button pressed. Confirming update."
 		if [ "$SKIP_APPLY" = false ]; then

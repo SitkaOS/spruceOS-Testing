@@ -17,6 +17,7 @@ BATTERY_CAPACITY="$(cat $BATTERY/capacity)"
 CHARGING="$(cat $BATTERY/online)"
 
 display --icon "$IMAGE_PATH" -t "Checking for updates..."
+rgb_led lrm12 blink2 0000FF 1500 "-1"
 
 VERSION="$(cat /usr/miyoo/version)"
 if [ "$VERSION" -lt 20240713100458 ]; then
@@ -281,7 +282,7 @@ fi
 
 rm -rf "$TMP_DIR"
 # Show updater app
-/mnt/SDCARD/spruce/scripts/applySetting/showHideApp.sh show "$SD_CARD/App/-Updater/config.json"
+sed -i 's|"#label"|"label"|' /mnt/SDCARD/App/-Updater/config.json"
 
 # Check battery level before asking to update
 if [ $BATTERY_CAPACITY -lt 20 ] && [ $CHARGING -eq 0 ]; then
